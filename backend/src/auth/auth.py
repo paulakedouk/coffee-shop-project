@@ -23,6 +23,8 @@ class AuthError(Exception):
 ## Auth Header
 
 def get_token_auth_header():
+    """Obtains the Access Token from the Authorization Header
+    """
     auth = request.headers.get('Authorization', None)
     if not auth:
         raise AuthError({
@@ -31,6 +33,7 @@ def get_token_auth_header():
         }, 401)
 
     parts = auth.split()
+
     if parts[0].lower() != 'bearer':
         raise AuthError({
             'code': 'invalid_header',
@@ -64,13 +67,13 @@ def get_token_auth_header():
     return true otherwise
 '''
 def check_permissions(permission, payload):
-    if ' permissions' not in payload:
+    if 'permissions' not in payload:
         raise AuthError({
             'code': 'invalid_claims',
             'description': 'Permissions not included in JWT.'
         }, 400)
 
-    if permission not in payload[' permissions']:
+    if permission not in payload['permissions']:
         raise AuthError({
             'code': 'forbidden',
             'description': 'Access forbidden.'
@@ -97,7 +100,7 @@ def verify_decode_jwt(token):
 
     # get the data in the header
     unverified_header = jwt.get_unverified_header(token)
-    
+
     # choose our key
     rsa_key = {}
     for key in jwks["keys"]:
@@ -109,8 +112,8 @@ def verify_decode_jwt(token):
                 "n": key["n"],
                 "e": key["e"]
             }
-    
-    # verify our key
+
+    # verify key
     if rsa_key:
         try:
             payload = jwt.decode(
@@ -144,7 +147,6 @@ def verify_decode_jwt(token):
                 'code': 'invalid_header',
                 'description': 'Unable to find the appropriate key.'
             }, 401)
-
 
 '''
 @TODO implement @requires_auth(permission) decorator method

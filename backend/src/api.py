@@ -11,17 +11,29 @@ app = Flask(__name__)
 setup_db(app)
 CORS(app)
 
+# @app.after_request
+# def after_request(response):
+#     response.headers.add('Access-Control-Allow-Headers',
+#                          'Content-Type,Authorization,true')
+#     response.headers.add('Access-Control-Allow-Methods',
+#                          'GET,PUT,POST,DELETE,OPTIONS')
+#     response.headers.add('Access-Control-Allow-Origin', '*')
+#     return response
+
 db_drop_and_create_all()
 
 ## ROUTES
 @app.route('/drinks', methods=['GET'])
 def get_drinks():
-    drinks = [drink.short() for drink in Drink.query.all()]
-    return jsonify({
-        'success': True,
-        'drinks': drinks
-    })
-
+    try:
+        selection = Drink.query.order_by(Drink.id).all()
+        drinks = [drink.short() for drink in selection]
+        return jsonify({
+            'success': True,
+            'drinks': drinks
+        })
+    except Exception as e:
+        print(e)
 
 
 '''
@@ -32,19 +44,21 @@ def get_drinks():
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks-detail', methods=['GET'])
+@app.route('/drinks-detail')
 @requires_auth('get:drinks-detail')
-def get_all_drinks_detail():
-    """
-    Permission "get:drinks-detail" endpoint: "/drinks-detail"
-    :return: drinks: List of drinks in long format
-    """
-    drinks = [drink.long() for drink in Drink.query.all()]
+def get_drinks_detail(payload):
+    selection = Drink.query.order_by(Drink.id).all()
+
+    if selection is None:
+        abort(404)
+
+    drinks = [d.long() for d in selection]
+
     return jsonify({
         'success': True,
         'drinks': drinks
-    })
-
+    }), 200
+    
 
 '''
 @TODO implement endpoint
@@ -58,7 +72,7 @@ def get_all_drinks_detail():
 @app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
 def add_new_drink(payload):
-    body = request.get_json
+    body = request.get_json()
     try:
         title = body.get('title')
         recipe_data = body.get('recipe')
@@ -88,6 +102,29 @@ def add_new_drink(payload):
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:drink_id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def update_drink(jwt, drink_id):
+    drink = Drink.query.get(drink_id)
+
+    if drink is None:
+        abort(404)
+
+    data = request.get_json()
+
+    if 'title' in data:
+        drink.title = data['title']
+
+    if 'recipe' in data:
+        drink.recipe = json.dumps(data['recipe'])
+
+    drink.update()
+
+    return jsonify({
+        'success': True,
+        'drinks': [drink.long()]
+    })
+
 
 
 '''
@@ -100,6 +137,22 @@ def add_new_drink(payload):
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:drink_id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink(jwt, drink_id):
+    data = request.get_json()
+
+    drink = Drink.query.get(drink_id)
+
+    if drink is None:
+        abort(404)
+
+    drink.delete()
+
+    return jsonify({
+        'success': True,
+        'delete': drink.id
+    })
 
 
 # Error Handler
